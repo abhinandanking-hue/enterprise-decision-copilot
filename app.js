@@ -101,6 +101,7 @@ const state = {
   connectedIntegrations: load('decisionkit.integrations', []),
   briefExpanded: false,
 };
+const isGitHubPages = location.hostname.endsWith('.github.io');
 
 const sourceGrid = document.querySelector('#source-grid');
 const connectorGrid = document.querySelector('#connector-grid');
@@ -351,6 +352,102 @@ async function postJson(path, payload) {
   return data;
 }
 
+function insufficientEvidenceBrief() {
+  return {
+    claims: [],
+    options: ['full_launch', 'limited_pilot', 'delay'].map((option) => ({
+      option,
+      benefits: [],
+      risks: [],
+      prerequisites: [],
+      assumptions: [],
+      evidenceClaimIds: [],
+    })),
+    recommendedOption: null,
+    rationale: 'Insufficient evidence for this static demo scenario. The published demo only includes a curated brief for the bundled question and sample evidence.',
+    missingEvidence: [
+      'GitHub Pages is a static host and does not run the Python or AI backend.',
+      'The bundled demo only supports “Should we launch AI Analytics next month?” with the four sample sources.',
+      'For other questions or imported evidence, run the app locally with an Anthropic API key.',
+    ],
+    contradictions: [],
+    evidenceCoverage: { present: [], missing: ['customer', 'engineering', 'incidents', 'metrics'] },
+    readiness: 'insufficient_evidence',
+    mode: 'demo',
+  };
+}
+
+function validateBrowserCitations(analysis, sources) {
+  const validOptions = new Set(['full_launch', 'limited_pilot', 'delay']);
+  const claimIds = new Set((analysis.claims || []).map((claim) => claim.id));
+  for (const claim of analysis.claims || []) {
+    if (!Array.isArray(claim.sourceRefs) || !claim.sourceRefs.length) {
+      throw new Error('A demo claim is missing source citations.');
+    }
+    for (const ref of claim.sourceRefs) {
+      const source = sources.find((item) => item.id === ref.sourceId);
+      const chunk = source?.chunks?.find((item) => item.id === ref.chunkId);
+      if (!chunk || !chunk.text.includes(ref.quote)) {
+        throw new Error(`Could not verify the demo citation ${ref.sourceId} / ${ref.chunkId}.`);
+      }
+    }
+  }
+  for (const option of analysis.options || []) {
+    if (!validOptions.has(option.option) ||
+        (option.evidenceClaimIds || []).some((id) => !claimIds.has(id))) {
+      throw new Error('The static demo returned an invalid option assessment.');
+    }
+  }
+  return analysis;
+}
+
+async function analyzeDecision(question, sources) {
+  if (!isGitHubPages) return postJson('/api/analyze', { question, sources });
+  const bundledIds = ['source-a', 'source-b', 'source-c', 'source-d'];
+  const sourceIds = sources.map((source) => source.id).sort();
+  const isBundledScenario = question.trim().toLowerCase() === 'should we launch ai analytics next month?' &&
+    bundledIds.every((id) => sourceIds.includes(id)) &&
+    sourceIds.every((id) => bundledIds.includes(id)) &&
+    sources.length === bundledIds.length;
+  if (!isBundledScenario) return insufficientEvidenceBrief();
+  const response = await fetch(new URL('./demo-analysis.json', import.meta.url));
+  if (!response.ok) throw new Error('Could not load the bundled static demo analysis.');
+  const analysis = await response.json();
+  analysis.mode = 'demo';
+  return validateBrowserCitations(analysis, sources);
+}
+
+function buildStaticChallenge(selectedOption, sources) {
+  const patterns = {
+    full_launch: /timeout|no broad launch|root cause|rollback|performance testing/i,
+    limited_pilot: /unknown|not available|not include|unvalidated|root cause|timeout/i,
+    delay: /interest|pilot can be enabled|expressed interest/i,
+  };
+  const counterEvidence = [];
+  for (const source of sources) {
+    for (const chunk of source.chunks || []) {
+      if (patterns[selectedOption]?.test(chunk.text)) {
+        counterEvidence.push({
+          text: chunk.text,
+          sourceRefs: [{ sourceId: source.id, chunkId: chunk.id, quote: chunk.text }],
+        });
+      }
+    }
+  }
+  return {
+    mode: 'demo',
+    assessment: counterEvidence.length
+      ? 'These are excerpts from your loaded evidence that could weigh against the selected path. Review their context; this static demo is not a full AI review.'
+      : 'No matching counter-evidence was found in the loaded sources. This static demo is not a full AI review.',
+    counterEvidence,
+    safeguards: selectedOption === 'full_launch'
+      ? ['Pass load tests and document rollback procedures before broad availability.', 'Set monitoring thresholds and explicit stop criteria.']
+      : selectedOption === 'limited_pilot'
+        ? ['Keep eligibility bounded and monitor performance closely.', 'Set a review checkpoint before expanding access.']
+        : ['Set a date and evidence criteria for reconsidering the decision.', 'Preserve a path to a small, controlled pilot if risks are addressed.'],
+  };
+}
+
 function setStatus(message, kind = '') {
   analysisStatus.className = `analysis-status ${kind}`;
   analysisStatus.innerHTML = `<span class="status-dot"></span><span>${escapeHtml(message)}</span>`;
@@ -372,7 +469,7 @@ async function buildBrief() {
   analyzeButton.querySelector('span:nth-child(2)').textContent = 'Building your brief…';
   setStatus('Reviewing the evidence and checking source references…', 'loading');
   try {
-    state.analysis = await postJson('/api/analyze', { question, sources: state.sources });
+    state.analysis = await analyzeDecision(question, state.sources);
     state.selectedOption = state.analysis.recommendedOption || null;
     state.briefExpanded = true;
     state.approved = null;
@@ -381,7 +478,9 @@ async function buildBrief() {
     save('decisionkit.approved', null);
     renderBrief();
     setStatus(state.analysis.readiness === 'insufficient_evidence'
-      ? 'Insufficient evidence for a recommendation in demo mode. Add the bundled sample pack or configure live AI analysis.'
+      ? isGitHubPages
+        ? 'Static demo: insufficient evidence for this question or source set. Run locally with an API key for live analysis.'
+        : 'Insufficient evidence for a recommendation in demo mode. Add the bundled sample pack or configure live AI analysis.'
       : state.analysis.mode === 'ai'
         ? 'AI analysis complete. Citations link to source sections.'
         : 'Demo analysis complete. Showing a curated path grounded in the fictional sample sources.',
@@ -404,11 +503,13 @@ async function challengeDecision() {
   button.disabled = true;
   button.textContent = 'Checking counter-evidence…';
   try {
-    const result = await postJson('/api/challenge', {
-      selectedOption: state.selectedOption,
-      rationale: state.analysis.rationale,
-      sources: state.sources,
-    });
+    const result = isGitHubPages
+      ? buildStaticChallenge(state.selectedOption, state.sources)
+      : await postJson('/api/challenge', {
+        selectedOption: state.selectedOption,
+        rationale: state.analysis.rationale,
+        sources: state.sources,
+      });
     state.challenge = result;
     renderBrief();
   } catch (error) {

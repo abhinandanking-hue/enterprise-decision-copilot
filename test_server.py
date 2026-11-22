@@ -1,5 +1,7 @@
 import copy
+import json
 import unittest
+from pathlib import Path
 
 from server import (
     FALLBACK_ANALYSIS,
@@ -77,6 +79,27 @@ class CitationValidationTests(unittest.TestCase):
         demo = build_demo_analysis("Should we launch AI Analytics next month?", sample_sources)
         self.assertEqual(demo["readiness"], "conditional")
         self.assertEqual(demo["recommendedOption"], "limited_pilot")
+
+    def test_static_pages_analysis_matches_verifiable_sample_evidence(self):
+        sample_sources = [
+            {"id": "source-a", "chunks": [
+                {"id": "A-1", "text": "In a fictional set of 12 customer conversations, 8 participants expressed interest in AI Analytics, but only 3 described a near-term use case they would actively deploy."},
+            ]},
+            {"id": "source-b", "chunks": [
+                {"id": "B-1", "text": "Engineering estimates a limited pilot can be enabled for up to 10 accounts using feature flags."},
+            ]},
+            {"id": "source-c", "chunks": [
+                {"id": "C-1", "text": "A recent analytics workload test produced timeout errors at high concurrency; root cause analysis remains open."},
+                {"id": "C-2", "text": "The incident owner recommends no broad launch until load tests and rollback procedures pass."},
+            ]},
+            {"id": "source-d", "chunks": [
+                {"id": "D-1", "text": "Feature activation in the fictional internal beta was 22% across 50 invited accounts. This is an early signal rather than evidence of general market demand."},
+            ]},
+        ]
+        static_analysis = json.loads(
+            (Path(__file__).parent / "demo-analysis.json").read_text(encoding="utf-8")
+        )
+        validate_citations(static_analysis, sample_sources)
 
     def test_demo_challenge_returns_grounded_counter_evidence(self):
         challenge = build_demo_challenge("full_launch", [{

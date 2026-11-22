@@ -10,6 +10,7 @@ A hackathon prototype that helps product teams evaluate launch decisions. It bri
 - A source-based challenge interaction and human-approved next-step plan.
 - PM demo connectors for Slack, Notion, Jira, Linear, Mixpanel, and Google Drive.
 - Optional server-side Anthropic analysis with citation validation.
+- GitHub Pages static demo, automatically deployed from `main`.
 - Responsive interface; saved demo state is local to the current browser.
 
 > **Prototype notice:** The built-in evidence and PM connector samples are fictional. Demo connectors do not authenticate or sync external accounts. This is not a production-ready or multi-user application.
@@ -23,6 +24,14 @@ python3 server.py
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Hosted demo
+
+The static demo is published at:
+
+<https://abhinandanking-hue.github.io/enterprise-decision-copilot/>
+
+GitHub Pages serves the bundled fictional analysis and browser-side source challenge. It does not run the Python server or make live Anthropic calls. To use live AI analysis with custom questions or imported evidence, run the app locally with an API key as described below.
 
 ## Demo flow
 
@@ -63,20 +72,8 @@ Optionally set `ANTHROPIC_MODEL` to a model available to your account. The defau
 python3 -m unittest -v
 ```
 
-## GitHub setup
+## GitHub Pages deployment
 
-1. Create an empty repository on GitHub (do not initialize it with a README, license, or `.gitignore`).
-2. In this folder, initialize Git if needed, commit the project, add your GitHub repository as `origin`, and push the branch:
-
-   ```sh
-   git init
-   git add .
-   git commit -m "Initial Enterprise Decision Co-Pilot prototype"
-   git branch -M main
-   git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPOSITORY.git
-   git push -u origin main
-   ```
-
-3. Configure `ANTHROPIC_API_KEY` as a local environment variable only when using live analysis. Never commit API keys, `.env` files, or sensitive customer evidence.
+The workflow in `.github/workflows/pages.yml` publishes the static demo whenever code is pushed to `main`. The repository’s Pages source must be set to **GitHub Actions**. Keep API keys in the local server environment; never put them in the static site, repository, or browser.
 
 No license is included. Choose a license before inviting reuse or contributions; without one, the default copyright rules apply.

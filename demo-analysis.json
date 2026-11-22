@@ -1,0 +1,149 @@
+{
+  "claims": [
+    {
+      "id": "interest",
+      "text": "Some customers expressed interest, but fewer described a near-term use case.",
+      "stance": "support",
+      "sourceRefs": [
+        {
+          "sourceId": "source-a",
+          "chunkId": "A-1",
+          "quote": "8 participants expressed interest in AI Analytics, but only 3 described a near-term use case they would actively deploy."
+        }
+      ],
+      "limitations": [
+        "Fictional sample of 12 conversations; not validated market research."
+      ]
+    },
+    {
+      "id": "pilot",
+      "text": "A limited pilot can be enabled for up to 10 accounts using feature flags.",
+      "stance": "support",
+      "sourceRefs": [
+        {
+          "sourceId": "source-b",
+          "chunkId": "B-1",
+          "quote": "a limited pilot can be enabled for up to 10 accounts using feature flags."
+        }
+      ],
+      "limitations": []
+    },
+    {
+      "id": "reliability",
+      "text": "High-concurrency timeouts remain unresolved, and the incident owner advises against a broad launch until safeguards pass.",
+      "stance": "oppose",
+      "sourceRefs": [
+        {
+          "sourceId": "source-c",
+          "chunkId": "C-1",
+          "quote": "A recent analytics workload test produced timeout errors at high concurrency; root cause analysis remains open."
+        },
+        {
+          "sourceId": "source-c",
+          "chunkId": "C-2",
+          "quote": "The incident owner recommends no broad launch until load tests and rollback procedures pass."
+        }
+      ],
+      "limitations": [
+        "The root cause analysis is still open."
+      ]
+    },
+    {
+      "id": "activation",
+      "text": "Internal beta activation is an early signal, not proof of broad demand.",
+      "stance": "neutral",
+      "sourceRefs": [
+        {
+          "sourceId": "source-d",
+          "chunkId": "D-1",
+          "quote": "Feature activation in the fictional internal beta was 22% across 50 invited accounts. This is an early signal rather than evidence of general market demand."
+        }
+      ],
+      "limitations": [
+        "No retention or willingness-to-pay results are available."
+      ]
+    }
+  ],
+  "options": [
+    {
+      "option": "full_launch",
+      "benefits": [
+        "Reach the full customer base sooner."
+      ],
+      "risks": [
+        "Unresolved high-concurrency timeouts could affect customers."
+      ],
+      "prerequisites": [
+        "Pass load tests and establish rollback procedures."
+      ],
+      "assumptions": [
+        "Reliability issues will be resolved before general availability."
+      ],
+      "evidenceClaimIds": [
+        "interest",
+        "reliability",
+        "activation"
+      ]
+    },
+    {
+      "option": "limited_pilot",
+      "benefits": [
+        "Test a real use case with a small, controlled group."
+      ],
+      "risks": [
+        "A small pilot may not represent enterprise demand or broader usage."
+      ],
+      "prerequisites": [
+        "Limit eligibility to at most 10 accounts; monitor performance; define rollback and stop criteria."
+      ],
+      "assumptions": [
+        "Feature flags can reliably contain the pilot."
+      ],
+      "evidenceClaimIds": [
+        "interest",
+        "pilot",
+        "reliability"
+      ]
+    },
+    {
+      "option": "delay",
+      "benefits": [
+        "Create time to resolve the incident and validate reliability."
+      ],
+      "risks": [
+        "Delays learning from customer use and postpones potential value."
+      ],
+      "prerequisites": [
+        "Complete load testing and rollback automation before reconsidering launch."
+      ],
+      "assumptions": [
+        "The additional engineering work can be completed and re-evaluated."
+      ],
+      "evidenceClaimIds": [
+        "reliability"
+      ]
+    }
+  ],
+  "recommendedOption": "limited_pilot",
+  "rationale": "A limited, monitored pilot is a conditional path to learn while containing exposure. Do not proceed to broad launch until the unresolved timeout issue is understood and load tests and rollback procedures pass. This is a reasonable option, not the only possible business decision.",
+  "missingEvidence": [
+    "Enterprise customer demand is unknown.",
+    "Retention and willingness-to-pay results are unavailable.",
+    "The estimated three engineering weeks for general availability have not been validated."
+  ],
+  "contradictions": [
+    "Customer interest is present, but only a few conversations described near-term use; internal activation is an early signal, while reliability evidence argues against broad launch."
+  ],
+  "evidenceCoverage": {
+    "present": [
+      "customer",
+      "engineering",
+      "incidents",
+      "metrics"
+    ],
+    "missing": [
+      "strategy"
+    ]
+  },
+  "readiness": "conditional"
+}
